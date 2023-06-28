@@ -4,21 +4,27 @@
 #define FILTER_EXP "port 23"
 #define MAX_ERRBUF_SIZE PCAP_ERRBUF_SIZE
 
+void handle_error(const char *message) {
+    fprintf(stderr, "Error: %s\n", message);
+    pcap_perror(handle, message);
+    pcap_close(handle);
+    exit(1);
+}
+
 int main(int argc, char *argv[]) {
-    pcap_t *handle;                   /* Session handle */
-    char *dev;                        /* The device to sniff on */
-    char errbuf[MAX_ERRBUF_SIZE];      /* Error string */
-    struct bpf_program fp;             /* The compiled filter */
-    bpf_u_int32 mask;                  /* Our netmask */
-    bpf_u_int32 net;                   /* Our IP */
-    struct pcap_pkthdr header;         /* The header that pcap gives us */
-    const u_char *packet;              /* The actual packet */
+    pcap_t *handle;
+    char *dev;
+    char errbuf[MAX_ERRBUF_SIZE];
+    struct bpf_program fp;
+    bpf_u_int32 mask;
+    bpf_u_int32 net;
+    struct pcap_pkthdr header;
+    const u_char *packet;
 
     /* Define the device */
     dev = pcap_lookupdev(errbuf);
     if (dev == NULL) {
-        fputs("Couldn't find default device\n", stderr);
-        return 2;
+        handle_error("Couldn't find default device");
     }
 
     /* Find the properties for the device */
@@ -31,19 +37,16 @@ int main(int argc, char *argv[]) {
     /* Open the session in promiscuous mode */
     handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
-        fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
-        return 2;
+        handle_error("Couldn't open device");
     }
 
     /* Compile and apply the filter */
     if (pcap_compile(handle, &fp, FILTER_EXP, 0, net) == -1) {
-        fprintf(stderr, "Couldn't parse filter %s: %s\n", FILTER_EXP, pcap_geterr(handle));
-        return 2;
+        handle_error("Couldn't parse filter");
     }
 
     if (pcap_setfilter(handle, &fp) == -1) {
-        fprintf(stderr, "Couldn't install filter %s: %s\n", FILTER_EXP, pcap_geterr(handle));
-        return 2;
+        handle_error("Couldn't install filter");
     }
 
     /* Grab a packet */
